@@ -1,0 +1,23 @@
+name: Fork CI
+on:
+  pull_request:
+    branches: [work]
+  push:
+    branches: [work]
+permissions:
+  contents: read
+jobs:
+  build:
+    if: github.repository == 'leejongyoung/egovframe-template-simple-react'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm run test:run
+        env:
+          NODE_ENV: test
