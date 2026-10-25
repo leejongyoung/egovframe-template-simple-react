@@ -42,7 +42,11 @@ Screenshots: [before](before.png), [development after](after-dev.png), [producti
 - Broad lint and CI were not run; targeted lint, local tests/build, and actual browser were run. No external green CI claim.
 
 ## Recommendation
-Ready for parent code review of local upstream-submit commit 610bc5f, with frontend runtime evidence and explicit integration limits. Keep submission unpushed until that review; do not represent this as completed backend end-to-end verification.
+Ready for parent code review of local upstream-submit commit a83f93d, with frontend runtime evidence and explicit integration limits. Keep submission unpushed until that review; do not represent this as completed backend end-to-end verification.
 
 ## Hooks
 The registered extension configuration has hooks {}; no pre/post fix/test hooks to execute.
+
+## Parent review correction checkpoint
+
+Final local commit a83f93d adds consumer README guidance, removes exact notice prose assertions, and removes unchanged credentials wiring coverage. Focused Node22 suite now has 23 tests, all passed; targeted ESLint and diff check passed. Full 169-test/build/runtime results above belong to the pre-review 610bc5f checkpoint, whose application code is identical; no new full-suite/build/runtime result is claimed for the test/docs-only correction. Both fork [#8](https://github.com/leejongyoung/egovframe-template-simple-react/issues/8) and [#5](https://github.com/leejongyoung/egovframe-template-simple-react/issues/5) are linked and scoped in fix.md. No additional push was made while awaiting review.
