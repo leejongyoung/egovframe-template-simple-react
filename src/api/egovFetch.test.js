@@ -87,3 +87,93 @@ describe("getQueryString", () => {
     expect(url.searchParams.get("searchWrd")).toBe(searchWrd);
   });
 });
+
+/** HTTP 상태는 업무 resultCode와 별도로 판단한다. */
+describe("requestFetch HTTP 응답 처리", () => {
+  const originalLocation = window.location;
+  let alertSpy;
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    sessionStorage.setItem("loginUser", JSON.stringify({ id: "demo-user" }));
+    alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    delete window.location;
+    window.location = { href: "/protected" };
+  });
+
+  afterEach(() => {
+    window.location = originalLocation;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    [200, { resultCode: 403 }],
+    [401, { resultCode: 403 }],
+    [401, { resultCode: "401" }],
+    [401, { resultCode: 200 }],
+    [401, undefined],
+    [401, "<html>Unauthorized</html>"],
+  ])("HTTP %s 인증 오류는 본문 %j와 무관하게 로그인으로 이동한다", async (status, body) => {
+    const json = vi.fn(() => typeof body === "object"
+      ? Promise.resolve(body)
+      : Promise.reject(new SyntaxError("Invalid JSON")));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: status === 200, status, json }));
+    const handler = vi.fn();
+    const errorHandler = vi.fn();
+
+    await expect(requestFetch("/bbsMaster", { method: "GET" }, handler, errorHandler)).resolves.toBeUndefined();
+
+    expect(window.location.href).toBe("/login");
+    expect(JSON.parse(sessionStorage.getItem("loginUser"))).toEqual({ id: "" });
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(handler).not.toHaveBeenCalled();
+    expect(errorHandler).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [403, { resultCode: 403, resultMessage: "권한이 없습니다." }, "권한이 없습니다."],
+    [500, { resultMessage: "서버 오류" }, "서버 오류"],
+    [500, null, "HTTP error: 500"],
+    [500, { resultMessage: 123 }, "HTTP error: 500"],
+    [500, { resultMessage: " " }, "HTTP error: 500"],
+    [502, undefined, "HTTP error: 502"],
+  ])("HTTP %s 오류는 로그아웃 없이 오류 콜백에 전달한다", async (status, body, message) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status,
+      json: () => body === undefined ? Promise.reject(new SyntaxError("Invalid JSON")) : Promise.resolve(body),
+    }));
+    const handler = vi.fn();
+    const errorHandler = vi.fn();
+
+    await requestFetch("/bbsMaster", { method: "GET" }, handler, errorHandler);
+
+    expect(errorHandler).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ message }));
+    expect(handler).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(window.location.href).toBe("/protected");
+    expect(JSON.parse(sessionStorage.getItem("loginUser"))).toEqual({ id: "demo-user" });
+  });
+
+  it("인증 조회는 401을 오류 콜백으로 받아 반복 이동을 피한다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401,
+      json: () => Promise.reject(new SyntaxError("Empty body")),
+    }));
+    const handler = vi.fn();
+    const errorHandler = vi.fn();
+    await requestFetch("/auth/me", { method: "GET" }, handler, errorHandler, { redirectOnUnauthorized: false });
+    expect(errorHandler).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ message: "HTTP error: 401" }));
+    expect(handler).not.toHaveBeenCalled();
+    expect(window.location.href).toBe("/protected");
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it("네트워크 장애를 인증 만료로 처리하지 않는다", async () => {
+    const error = new TypeError("Failed to fetch");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
+    const errorHandler = vi.fn();
+    await requestFetch("/board", { method: "GET" }, vi.fn(), errorHandler);
+    expect(errorHandler).toHaveBeenCalledExactlyOnceWith(error);
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(window.location.href).toBe("/protected");
+  });
+});
