@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { getQueryString, requestFetch } from "@/api/egovFetch";
 import CODE from "@/constants/code";
+import { mockJsonResponse } from "@/test/mockFetch";
 
 /**
  * 인증 오류 응답은 로그인 화면으로 보내고 거기서 끝나야 한다.
@@ -16,10 +17,7 @@ describe("requestFetch 인증 오류 처리", () => {
     delete window.location;
     window.location = { href: "" };
     global.fetch = vi.fn(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ resultCode: CODE.RCV_ERROR_AUTH }),
-      })
+      Promise.resolve(mockJsonResponse({ resultCode: CODE.RCV_ERROR_AUTH }))
     );
   });
 
@@ -115,10 +113,15 @@ describe("requestFetch HTTP 응답 처리", () => {
     [401, undefined],
     [401, "<html>Unauthorized</html>"],
   ])("HTTP %s 인증 오류는 본문 %j와 무관하게 로그인으로 이동한다", async (status, body) => {
-    const json = vi.fn(() => typeof body === "object"
-      ? Promise.resolve(body)
-      : Promise.reject(new SyntaxError("Invalid JSON")));
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: status === 200, status, json }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        mockJsonResponse(typeof body === "object" ? body : undefined, {
+          ok: status === 200,
+          status,
+        })
+      )
+    );
     const handler = vi.fn();
     const errorHandler = vi.fn();
 
@@ -139,9 +142,10 @@ describe("requestFetch HTTP 응답 처리", () => {
     [500, { resultMessage: " " }, "HTTP error: 500"],
     [502, undefined, "HTTP error: 502"],
   ])("HTTP %s 오류는 로그아웃 없이 오류 콜백에 전달한다", async (status, body, message) => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status,
-      json: () => body === undefined ? Promise.reject(new SyntaxError("Invalid JSON")) : Promise.resolve(body),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(mockJsonResponse(body, { ok: false, status }))
+    );
     const handler = vi.fn();
     const errorHandler = vi.fn();
 
@@ -155,9 +159,10 @@ describe("requestFetch HTTP 응답 처리", () => {
   });
 
   it("인증 조회는 401을 오류 콜백으로 받아 반복 이동을 피한다", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401,
-      json: () => Promise.reject(new SyntaxError("Empty body")),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(mockJsonResponse(undefined, { ok: false, status: 401 }))
+    );
     const handler = vi.fn();
     const errorHandler = vi.fn();
     await requestFetch("/auth/me", { method: "GET" }, handler, errorHandler, { redirectOnUnauthorized: false });
