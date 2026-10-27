@@ -314,6 +314,7 @@ function EgovAdminScheduleList() {
                 </li>
                 <li className="half L">
                   <button
+                    type="button"
                     className="prev"
                     onClick={() => {
                       changeDate(CODE.DATE_YEAR, -1);
@@ -321,6 +322,7 @@ function EgovAdminScheduleList() {
                   ></button>
                   <span>{searchCondition.year}</span>
                   <button
+                    type="button"
                     className="next"
                     onClick={() => {
                       changeDate(CODE.DATE_YEAR, 1);
@@ -329,6 +331,7 @@ function EgovAdminScheduleList() {
                 </li>
                 <li className="half R">
                   <button
+                    type="button"
                     className="prev"
                     onClick={() => {
                       changeDate(CODE.DATE_MONTH, -1);
@@ -336,6 +339,7 @@ function EgovAdminScheduleList() {
                   ></button>
                   <span>{searchCondition.month + 1}</span>
                   <button
+                    type="button"
                     className="next"
                     onClick={() => {
                       changeDate(CODE.DATE_MONTH, 1);
